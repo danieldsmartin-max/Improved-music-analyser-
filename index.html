@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MusicTaste.ai - Pro Audio Taste Analyzer & Recommendations</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            dark: '#030508',
+                            panel: '#0B1121',
+                            card: '#121A30',
+                            accent: '#8B5CF6',
+                            cyan: '#06B6D4',
+                            pink: '#EC4899',
+                            success: '#10B981',
+                            warning: '#F59E0B'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bar-eq': 'equalizer 0.8s ease-in-out infinite alternate',
+                        'shimmer': 'shimmer 2s linear infinite',
+                        'slide-up': 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'slide-down': 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'fade-in': 'fadeIn 0.25s ease-out forwards',
+                    },
+                    keyframes: {
+                        equalizer: {
+                            '0%': { height: '15%' },
+                            '100%': { height: '100%' }
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-1000px 0' },
+                            '100%': { backgroundPosition: '1000px 0' }
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(100%)', opacity: 0 },
+                            '100%': { transform: 'translateY(0)', opacity: 1 }
+                        },
+                        slideDown: {
+                            '0%': { transform: 'translateY(0)', opacity: 1 },
+                            '100%': { transform: 'translateY(100%)', opacity: 0 }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: 0 },
+                            '100%': { opacity: 1 }
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts & Icon Libraries -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* Mobile Scrollbar & Touch Polish */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #030508; }
+        ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8B5CF6; }
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(11, 17, 33, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-card {
+            background: rgba(18, 26, 48, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .text-glow { text-shadow: 0 0 20px rgba(139, 92, 246, 0.6); }
+
+        /* Smooth Touch Scrolling on iOS/Android */
+        .touch-scroll {
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+
+        /* Prevent background scroll when modal is active */
+        body.modal-open {
+            overflow: hidden !important;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="bg-brand-dark text-slate-200 min-h-screen flex flex-col font-sans selection:bg-brand-accent selection:text-white antialiased overflow-x-hidden">
+
+    <!-- Global App Header -->
+    <header class="fixed top-0 inset-x-0 z-40 glass-panel border-b border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer group" onclick="APP.resetApp()">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-accent via-brand-pink to-brand-cyan flex items-center justify-center shadow-lg shadow-brand-accent/20 group-hover:shadow-brand-accent/40 transition-all duration-300">
+                    <i data-lucide="audio-lines" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <span class="text-lg sm:text-xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">MusicTaste.ai</span>
+                </div>
+            </div>
+            
+            <!-- Global Seed Counter & Status -->
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-400">
+                    <div class="w-2 h-2 rounded-full bg-brand-success animate-pulse"></div>
+                    Engine Active
+                </div>
+                <div class="glass-card flex items-center px-3 py-1.5 rounded-full border border-slate-700/60 shadow-inner">
+                    <i data-lucide="disc-3" class="w-4 h-4 text-brand-cyan mr-1.5 animate-spin-slow"></i>
+                    <span id="globalSeedCount" class="font-bold text-white text-sm">0</span>
+                    <span class="text-slate-400 text-xs ml-1">/ 15</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-grow pt-24 pb-36 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        
+        <!-- Hero Tagline -->
+        <section class="text-center mb-8 sm:mb-12 animate-fade-in">
+            <h1 class="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white mb-3 leading-tight">
+                Decode your <span class="bg-clip-text text-transparent bg-gradient-to-r from-brand-accent via-brand-pink to-brand-cyan text-glow">Music Taste.</span>
+            </h1>
+            <p class="text-slate-400 text-xs sm:text-base max-w-2xl mx-auto leading-relaxed px-2">
+                Add 3 to 15 of your favorite tracks. Our engine constructs your acoustic fingerprint and recommends strictly <strong>new, unselected artists</strong>.
+            </p>
+        </section>
+
+        <!-- Search & Seed Tray Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start relative">
+            
+            <!-- Left: iTunes Real-Time Track Search -->
+            <div class="lg:col-span-7 space-y-6">
+                <div class="glass-panel p-4 sm:p-6 rounded-2xl border border-slate-800/80 shadow-2xl relative z-30">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                            <i data-lucide="search" class="w-5 h-5 text-brand-cyan"></i>
+                            Search Directory
+                        </h2>
+                        <span class="text-[11px] text-slate-400 font-mono">iTunes API</span>
+                    </div>
+
+                    <!-- Search Input Box -->
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i data-lucide="search" class="w-5 h-5 text-slate-500"></i>
+                        </div>
+                        <input type="text" id="searchInput" autocomplete="off" placeholder="Search track or artist... (e.g. Kendric, Taylor Swift)" class="w-full bg-brand-dark/70 border border-slate-700/80 rounded-xl py-3.5 pl-12 pr-12 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all text-sm font-medium">
+                        
+                        <!-- Search Loading Spinner -->
+                        <div id="searchSpinner" class="absolute inset-y-0 right-0 pr-4 flex items-center hidden">
+                            <i data-lucide="loader-2" class="w-5 h-5 text-brand-accent animate-spin"></i>
+                        </div>
+
+                        <!-- Dropdown Results -->
+                        <div id="searchResults" class="absolute top-full left-0 right-0 mt-2 glass-panel rounded-xl border border-slate-700 overflow-y-auto hidden flex-col shadow-2xl z-50 max-h-[320px] touch-scroll">
+                            <!-- Populated via JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Quick Starter Recommendations -->
+                    <div class="mt-5">
+                        <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2.5">Quick Starters</h3>
+                        <div class="flex flex-wrap gap-2" id="quickStarters">
+                            <!-- Populated via JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Seed Tray -->
+            <div class="lg:col-span-5 space-y-6">
+                <div class="glass-panel p-4 sm:p-6 rounded-2xl border border-slate-800/80 shadow-2xl lg:sticky lg:top-24">
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                        <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                            <i data-lucide="list-music" class="w-5 h-5 text-brand-pink"></i>
+                            DNA Seed Tracks
+                        </h2>
+                        <button onclick="APP.clearSeeds()" class="text-xs font-medium text-slate-400 hover:text-red-400 transition-colors flex items-center gap-1 min-h-[36px] px-2 py-1 rounded-lg hover:bg-red-500/10">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i> Clear All
+                        </button>
+                    </div>
+
+                    <!-- Seed List Container -->
+                    <div id="seedList" class="space-y-2.5 min-h-[180px] max-h-[320px] overflow-y-auto pr-1 touch-scroll">
+                        <!-- Empty State -->
+                        <div id="seedEmptyState" class="h-[180px] flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-800 rounded-xl p-4">
+                            <div class="w-10 h-10 rounded-full bg-slate-800/60 flex items-center justify-center mb-2.5">
+                                <i data-lucide="music-4" class="w-5 h-5 text-slate-500"></i>
+                            </div>
+                            <p class="text-xs sm:text-sm font-semibold text-slate-300">Your tray is empty</p>
+                            <p class="text-[11px] text-slate-500 mt-1">Search and select 3 to 15 songs to build your taste DNA.</p>
+                        </div>
+                    </div>
+
+                    <!-- Analyze Trigger Button -->
+                    <div class="mt-5 pt-3 border-t border-slate-800">
+                        <button id="analyzeBtn" onclick="APP.runAnalysis()" disabled class="w-full relative group overflow-hidden rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                            <div class="absolute inset-0 bg-gradient-to-r from-brand-accent via-brand-pink to-brand-cyan opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                            <div class="relative px-5 py-3.5 flex items-center justify-center gap-2 text-white font-bold text-sm shadow-md">
+                                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                                <span>Analyze Taste & Get Recommendations</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Results Dashboard (Hidden until analyzed) -->
+        <section id="analysisDashboard" class="mt-16 sm:mt-24 hidden opacity-0 transition-opacity duration-700 scroll-mt-24">
+            <div class="text-center mb-8 sm:mb-12">
+                <span class="text-xs font-mono uppercase tracking-widest text-brand-cyan">Sonic Profile Report</span>
+                <h2 class="text-2xl sm:text-4xl font-black text-white mt-1">Your Musical Persona</h2>
+                <div class="h-1 w-16 bg-gradient-to-r from-brand-accent to-brand-cyan mx-auto mt-3 rounded-full"></div>
+            </div>
+
+            <!-- Profile Overview Cards -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-10">
+                
+                <!-- Persona Description -->
+                <div class="lg:col-span-7 glass-card rounded-2xl p-6 sm:p-8 border border-brand-accent/20 relative overflow-hidden flex flex-col justify-between">
+                    <div class="absolute top-0 right-0 -mr-16 -mt-16 w-60 h-60 bg-brand-accent/10 rounded-full blur-3xl pointer-events-none"></div>
+                    
+                    <div>
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-accent/10 text-brand-accent text-xs font-bold border border-brand-accent/20 mb-4">
+                            <i data-lucide="fingerprint" class="w-4 h-4"></i> Audio DNA Persona
+                        </div>
+                        
+                        <h3 id="personaTitle" class="text-2xl sm:text-4xl font-black text-white mb-3 bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-400">
+                            Analyzing...
+                        </h3>
+                        <p id="personaDesc" class="text-slate-300 text-xs sm:text-sm leading-relaxed mb-6">
+                            Generating custom acoustic signature...
+                        </p>
+                    </div>
+
+                    <!-- Top Genre Badges -->
+                    <div>
+                        <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Dominant Acoustic Styles</h4>
+                        <div id="personaTags" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+
+                <!-- Chart.js Radar Chart Card -->
+                <div class="lg:col-span-5 glass-card rounded-2xl p-6 border border-slate-700/50 flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                            <i data-lucide="radar" class="w-4 h-4 text-brand-cyan"></i> Attribute Radar
+                        </h4>
+                        <span class="text-[10px] text-slate-400 font-mono">6 Signatures</span>
+                    </div>
+                    
+                    <div class="w-full h-56 sm:h-64 relative flex items-center justify-center">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Smart Recommendations Section -->
+            <div class="mt-12 sm:mt-16">
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+                    <div>
+                        <h3 class="text-xl sm:text-3xl font-black text-white flex items-center gap-2">
+                            <i data-lucide="sparkles" class="w-6 h-6 text-brand-success"></i> Suggested Listening
+                        </h3>
+                        <p class="text-xs sm:text-sm text-slate-400 mt-1">Strictly new artists curated for your taste profile.</p>
+                    </div>
+
+                    <!-- Action & Filter Bar -->
+                    <div class="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 touch-scroll">
+                        <div class="flex items-center bg-brand-panel/80 p-1 rounded-xl border border-slate-800 shrink-0" id="filterTabs">
+                            <button onclick="APP.setFilter('all')" data-filter="all" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-brand-accent text-white">All</button>
+                            <button onclick="APP.setFilter('vibes')" data-filter="vibes" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">Similar Vibes</button>
+                            <button onclick="APP.setFilter('genre')" data-filter="genre" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">Genre Explore</button>
+                        </div>
+                        
+                        <button onclick="APP.openExportModal()" class="shrink-0 px-3 py-2 glass-panel hover:bg-slate-800 text-slate-200 text-xs font-bold rounded-xl border-slate-700 flex items-center gap-1.5 transition-colors min-h-[40px]">
+                            <i data-lucide="share-2" class="w-4 h-4 text-brand-cyan"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recommendation Cards Grid -->
+                <div id="recsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+                    <!-- Populated via JavaScript -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Global Sticky Audio Player -->
+    <div id="globalPlayer" class="fixed bottom-0 inset-x-0 glass-panel border-t border-slate-700/80 p-3 sm:p-4 transform translate-y-full transition-transform duration-300 z-40">
+        <div class="max-w-7xl mx-auto px-2 flex items-center gap-3 sm:gap-4">
+            <!-- Cover Art -->
+            <div class="relative w-11 h-11 sm:w-14 sm:h-14 rounded-lg overflow-hidden shrink-0 border border-slate-700 group">
+                <img id="playerCover" src="" alt="Cover" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="flex items-end gap-[2px] h-3.5">
+                        <div class="w-1 bg-brand-accent animate-bar-eq"></div>
+                        <div class="w-1 bg-brand-pink animate-bar-eq" style="animation-delay: 0.2s"></div>
+                        <div class="w-1 bg-brand-cyan animate-bar-eq" style="animation-delay: 0.4s"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Track Info & Scrub Bar -->
+            <div class="flex-grow min-w-0">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="truncate pr-2">
+                        <h4 id="playerTitle" class="text-xs sm:text-sm font-bold text-white truncate">Track Title</h4>
+                        <p id="playerArtist" class="text-[11px] text-slate-400 truncate">Artist Name</p>
+                    </div>
+                    <span id="playerTime" class="text-[10px] font-mono text-slate-400 shrink-0">0:00 / 0:30</span>
+                </div>
+                <!-- Scrub Slider -->
+                <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden cursor-pointer py-1" onclick="APP.seekAudio(event)">
+                    <div id="playerProgress" class="h-full bg-gradient-to-r from-brand-accent to-brand-cyan w-0 transition-all duration-100 rounded-full"></div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex items-center gap-2 shrink-0">
+                <button onclick="APP.togglePlayPause()" id="playerPlayBtn" class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg min-w-[44px] min-h-[44px]">
+                    <i data-lucide="play" id="playerPlayIcon" class="w-5 h-5 fill-current ml-0.5"></i>
+                </button>
+                <button onclick="APP.closePlayer()" class="p-2 text-slate-400 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Track Details Modal (100% Mobile Responsive Bottom Sheet) -->
+    <div id="trackDetailModal" class="fixed inset-0 z-[100] hidden flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md transition-opacity duration-300">
+        <!-- Backdrop Tap-to-dismiss -->
+        <div class="absolute inset-0" onclick="APP.closeTrackDetailModal()"></div>
+        
+        <div class="glass-panel border border-slate-700/80 w-full max-w-lg rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] sm:max-h-[90vh] flex flex-col relative z-10 animate-slide-up touch-scroll">
+            
+            <!-- Handle indicator for mobile bottom sheet -->
+            <div class="w-12 h-1.5 bg-slate-700 rounded-full mx-auto my-2.5 sm:hidden"></div>
+
+            <!-- Modal Header -->
+            <div class="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
+                <span class="text-xs font-bold text-brand-cyan uppercase tracking-wider flex items-center gap-1.5">
+                    <i data-lucide="info" class="w-4 h-4"></i> Track Breakdown
+                </span>
+                <button onclick="APP.closeTrackDetailModal()" class="w-11 h-11 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content (Scrollable) -->
+            <div class="p-5 sm:p-6 overflow-y-auto space-y-5 touch-scroll">
+                <div class="flex items-center gap-4">
+                    <img id="modalCover" src="" class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border border-slate-700 shadow-xl shrink-0">
+                    <div class="min-w-0 flex-grow">
+                        <h3 id="modalTitle" class="text-lg sm:text-xl font-black text-white truncate">Title</h3>
+                        <p id="modalArtist" class="text-sm font-semibold text-brand-cyan truncate">Artist</p>
+                        <span id="modalGenre" class="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-slate-800 text-[11px] font-medium text-slate-300 border border-slate-700">Genre</span>
+                    </div>
+                </div>
+
+                <!-- Match & Rationale Box -->
+                <div class="bg-brand-dark/80 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-400">Match Affinity</span>
+                        <span id="modalMatchPct" class="text-xs font-bold text-brand-success bg-brand-success/10 px-2 py-0.5 rounded border border-brand-success/20">95% Match</span>
+                    </div>
+                    <p id="modalReason" class="text-xs text-slate-300 leading-relaxed">Rationale text...</p>
+                </div>
+
+                <!-- Audio Preview Quick Play -->
+                <div id="modalAudioBox" class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent">
+                            <i data-lucide="music" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-white">Audio Preview</p>
+                            <p class="text-[10px] text-slate-400">30-second snippet</p>
+                        </div>
+                    </div>
+                    <button id="modalPlayBtn" onclick="" class="px-4 py-2 rounded-xl bg-brand-accent text-white font-bold text-xs flex items-center gap-1.5 min-h-[44px]">
+                        <i data-lucide="play" class="w-4 h-4"></i> Preview
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-900/90 border-t border-slate-800 flex gap-3">
+                <button id="modalSeedBtn" onclick="" class="w-full py-3 rounded-xl bg-gradient-to-r from-brand-accent to-brand-pink text-white font-bold text-xs flex items-center justify-center gap-2 min-h-[44px]">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Add to DNA Seeds
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export & Share Modal -->
+    <div id="exportModal" class="fixed inset-0 z-[100] hidden flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md transition-opacity duration-300">
+        <div class="absolute inset-0" onclick="APP.closeExportModal()"></div>
+        <div class="glass-panel border border-slate-700/80 w-full max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden relative z-10 animate-slide-up touch-scroll">
+            <div class="w-12 h-1.5 bg-slate-700 rounded-full mx-auto my-2.5 sm:hidden"></div>
+            
+            <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i data-lucide="share-2" class="w-4 h-4 text-brand-cyan"></i> Export Playlist
+                </h3>
+                <button onclick="APP.closeExportModal()" class="w-11 h-11 rounded-full text-slate-400 hover:text-white flex items-center justify-center">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-3">
+                <button onclick="APP.copyRecs()" class="w-full p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-left text-xs font-bold text-white border border-slate-700 flex items-center justify-between min-h-[48px]">
+                    <span class="flex items-center gap-2"><i data-lucide="copy" class="w-4 h-4 text-brand-pink"></i> Copy Tracklist to Clipboard</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                </button>
+
+                <button onclick="APP.exportCSV()" class="w-full p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-left text-xs font-bold text-white border border-slate-700 flex items-center justify-between min-h-[48px]">
+                    <span class="flex items-center gap-2"><i data-lucide="download" class="w-4 h-4 text-brand-cyan"></i> Download (.CSV Spreadsheet)</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Native Audio Engine -->
+    <audio id="audioEngine" preload="metadata"></audio>
+
+    <!-- Toast Notification Overlay -->
+    <div id="toastContainer" class="fixed bottom-20 sm:bottom-24 inset-x-4 sm:inset-x-auto sm:right-8 z-[110] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        const APP = (function() {
+            // --- Application State ---
+            const state = {
+                seeds: [],
+                maxSeeds: 15,
+                recs: [],
+                filteredRecs: [],
+                currentFilter: 'all',
+                audio: document.getElementById('audioEngine'),
+                currentPlayingTrack: null,
+                chartInstance: null,
+                activeModalTrack: null
+            };
+
+            // --- DOM Elements ---
+            const DOM = {
+                searchInput: document.getElementById('searchInput'),
+                searchResults: document.getElementById('searchResults'),
+                searchSpinner: document.getElementById('searchSpinner'),
+                seedList: document.getElementById('seedList'),
+                seedEmptyState: document.getElementById('seedEmptyState'),
+                globalSeedCount: document.getElementById('globalSeedCount'),
+                analyzeBtn: document.getElementById('analyzeBtn'),
+                analysisDashboard: document.getElementById('analysisDashboard'),
+                recsGrid: document.getElementById('recsGrid'),
+                globalPlayer: document.getElementById('globalPlayer'),
+                toastContainer: document.getElementById('toastContainer'),
+                trackDetailModal: document.getElementById('trackDetailModal'),
+                exportModal: document.getElementById('exportModal')
+            };
+
+            const QUICK_STARTERS = [
+                { title: 'Blinding Lights', artist: 'The Weeknd' },
+                { title: 'Starboy', artist: 'The Weeknd' },
+                { title: 'As It Was', artist: 'Harry Styles' },
+                { title: 'Levitating', artist: 'Dua Lipa' }
+            ];
+
+            // --- Utilities ---
+            const debounce = (func, wait) => {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func(...args), wait);
+                };
+            };
+
+            const escapeHTML = (str) => {
+                if (!str) return '';
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            };
+
+            const showToast = (message, type = 'info') => {
+                const toast = document.createElement('div');
+                const colors = type === 'error' ? 'border-red-500/50 text-red-100 bg-red-950/90' : 
+                               type === 'success' ? 'border-brand-success/50 text-emerald-100 bg-emerald-950/90' : 
+                               'border-brand-accent/50 text-white glass-panel';
+                const icon = type === 'error' ? 'alert-circle' : type === 'success' ? 'check-circle' : 'info';
+                
+                toast.className = `flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-2xl animate-slide-up pointer-events-auto text-xs font-medium ${colors}`;
+                toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 shrink-0"></i><span>${escapeHTML(message)}</span>`;
+                DOM.toastContainer.appendChild(toast);
+                lucide.createIcons();
+
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(10px)';
+                    toast.style.transition = 'all 0.3s ease-out';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            };
+
+            // --- iTunes Real-Time Search API ---
+            const searchiTunes = async (term) => {
+                if (!term.trim()) {
+                    DOM.searchResults.classList.add('hidden');
+                    return;
+                }
+                DOM.searchSpinner.classList.remove('hidden');
+                
+                try {
+                    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=8`);
+                    const data = await res.json();
+                    renderSearchResults(data.results || []);
+                } catch (error) {
+                    console.error('Search error:', error);
+                    showToast('Failed to connect to iTunes API.', 'error');
+                } finally {
+                    DOM.searchSpinner.classList.add('hidden');
+                }
+            };
+
+            const debouncedSearch = debounce(searchiTunes, 350);
+
+            DOM.searchInput.addEventListener('input', (e) => debouncedSearch(e.target.value));
+            document.addEventListener('click', (e) => {
+                if (!DOM.searchInput.contains(e.target) && !DOM.searchResults.contains(e.target)) {
+                    DOM.searchResults.classList.add('hidden');
+                }
+            });
+
+            const renderSearchResults = (results) => {
+                if (results.length === 0) {
+                    DOM.searchResults.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">No tracks found. Try a different query.</div>`;
+                } else {
+                    DOM.searchResults.innerHTML = results.map(track => {
+                        const hiResArt = track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb', '300x300bb') : '';
+                        const trackData = JSON.stringify({
+                            id: track.trackId,
+                            title: track.trackName,
+                            artist: track.artistName,
+                            cover: hiResArt,
+                            preview: track.previewUrl,
+                            genre: track.primaryGenreName || 'Pop'
+                        }).replace(/'/g, "&#39;");
+
+                        return `
+                        <div onclick='APP.addSeedTrack(${trackData})' class="flex items-center gap-3 p-3 hover:bg-slate-800/80 cursor-pointer transition-colors border-b border-slate-800/60 last:border-0 min-h-[52px]">
+                            <img src="${hiResArt}" class="w-10 h-10 rounded-lg object-cover border border-slate-700/60 shrink-0">
+                            <div class="flex-grow min-w-0">
+                                <h4 class="text-xs font-bold text-slate-100 truncate">${escapeHTML(track.trackName)}</h4>
+                                <p class="text-[11px] text-slate-400 truncate">${escapeHTML(track.artistName)}</p>
+                            </div>
+                            <button class="w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:bg-brand-accent hover:text-white flex items-center justify-center shrink-0">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        `;
+                    }).join('');
+                }
+                DOM.searchResults.classList.remove('hidden');
+                lucide.createIcons();
+            };
+
+            // --- Seed Tray Functions ---
+            const addSeedTrack = (trackObj) => {
+                if (state.seeds.length >= state.maxSeeds) {
+                    showToast(`Maximum ${state.maxSeeds} seed songs allowed.`, 'warning');
+                    return;
+                }
+                if (state.seeds.some(s => s.id === trackObj.id)) {
+                    showToast('Track is already in your seed list.', 'warning');
+                    return;
+                }
+
+                state.seeds.push(trackObj);
+                DOM.searchResults.classList.add('hidden');
+                DOM.searchInput.value = '';
+                updateSeedUI();
+                showToast(`Added "${trackObj.title}" to seeds.`, 'success');
+            };
+
+            const removeSeedTrack = (id) => {
+                state.seeds = state.seeds.filter(s => s.id !== id);
+                updateSeedUI();
+            };
+
+            const clearSeeds = () => {
+                state.seeds = [];
+                updateSeedUI();
+                DOM.analysisDashboard.classList.add('hidden');
+                DOM.analysisDashboard.classList.remove('opacity-100');
+            };
+
+            const updateSeedUI = () => {
+                DOM.globalSeedCount.textContent = state.seeds.length;
+                DOM.analyzeBtn.disabled = state.seeds.length < 3;
+                
+                if (state.seeds.length === 0) {
+                    DOM.seedEmptyState.classList.remove('hidden');
+                    DOM.seedList.innerHTML = '';
+                    DOM.seedList.appendChild(DOM.seedEmptyState);
+                } else {
+                    DOM.seedEmptyState.classList.add('hidden');
+                    DOM.seedList.innerHTML = state.seeds.map(s => `
+                        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 group">
+                            <img src="${s.cover}" class="w-9 h-9 rounded-lg object-cover border border-slate-700/60 shrink-0">
+                            <div class="flex-grow min-w-0">
+                                <h4 class="text-xs font-bold text-slate-100 truncate">${escapeHTML(s.title)}</h4>
+                                <p class="text-[10px] text-brand-cyan font-semibold truncate">${escapeHTML(s.artist)}</p>
+                            </div>
+                            <button onclick="APP.removeSeedTrack(${s.id})" class="w-8 h-8 rounded-full text-slate-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-colors shrink-0">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    `).join('');
+                }
+                lucide.createIcons();
+            };
+
+            // --- Analysis Engine & Persona Calculator ---
+            const generateAttributes = (str) => {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+                const rng = (min, max, offset) => {
+                    const x = Math.sin(hash + offset) * 10000;
+                    return Math.floor((x - Math.floor(x)) * (max - min + 1)) + min;
+                };
+                return {
+                    energy: rng(35, 95, 1),
+                    valence: rng(20, 90, 2),
+                    danceability: rng(40, 95, 3),
+                    acousticness: rng(10, 85, 4),
+                    synthetic: rng(15, 90, 5),
+                    tempo: rng(85, 165, 6)
+                };
+            };
+
+            const runAnalysis = async () => {
+                if (state.seeds.length < 3) return;
+
+                DOM.analysisDashboard.classList.remove('hidden');
+                setTimeout(() => DOM.analysisDashboard.classList.add('opacity-100'), 50);
+                DOM.analysisDashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                let totals = { energy: 0, valence: 0, danceability: 0, acousticness: 0, synthetic: 0, tempo: 0 };
+                let genres = {};
+
+                state.seeds.forEach(s => {
+                    const attr = generateAttributes(s.artist + s.title);
+                    totals.energy += attr.energy;
+                    totals.valence += attr.valence;
+                    totals.danceability += attr.danceability;
+                    totals.acousticness += attr.acousticness;
+                    totals.synthetic += attr.synthetic;
+                    totals.tempo += attr.tempo;
+                    genres[s.genre] = (genres[s.genre] || 0) + 1;
+                });
+
+                const count = state.seeds.length;
+                const avgs = {
+                    energy: Math.round(totals.energy / count),
+                    valence: Math.round(totals.valence / count),
+                    danceability: Math.round(totals.danceability / count),
+                    acousticness: Math.round(totals.acousticness / count),
+                    synthetic: Math.round(totals.synthetic / count),
+                    tempo: Math.round(totals.tempo / count)
+                };
+
+                // Classify Persona
+                let persona = "Eclectic Audio Explorer";
+                let desc = "Your tastes span a dynamic mix of textures, blending distinct rhythm patterns and harmonic balances.";
+                
+                if (avgs.energy > 75 && avgs.synthetic > 70) {
+                    persona = "High-Energy Synth Enthusiast";
+                    desc = "Driven by high tempos and electronic soundscapes, your music DNA thrives in modern produce and pulse.";
+                } else if (avgs.acousticness > 60) {
+                    persona = "Organic Acoustic Daydreamer";
+                    desc = "You favor authentic acoustic instrumentation, intimate lyrical delivery, and rich harmonic depths.";
+                } else if (avgs.valence > 70 && avgs.danceability > 70) {
+                    persona = "Euphoric Groove Architect";
+                    desc = "Uplifting rhythms and infectious dance melodies dominate your playlist choices.";
+                } else if (avgs.valence < 45 && avgs.energy > 55) {
+                    persona = "Atmospheric Alt Brooder";
+                    desc = "You lean towards moodier, minor-key arrangements packed with emotional density and punch.";
+                }
+
+                document.getElementById('personaTitle').textContent = persona;
+                document.getElementById('personaDesc').textContent = desc;
+
+                // Render Top Genres
+                const sortedGenres = Object.entries(genres).sort((a,b) => b[1]-a[1]);
+                document.getElementById('personaTags').innerHTML = sortedGenres.map(g => 
+                    `<span class="px-3 py-1 rounded-full bg-slate-800/90 text-xs font-semibold text-slate-300 border border-slate-700/80">${g[0]} (${Math.round((g[1]/count)*100)}%)</span>`
+                ).join('');
+
+                renderRadarChart(avgs);
+                await fetchRecommendations(sortedGenres.map(g=>g[0]));
+            };
+
+            const renderRadarChart = (data) => {
+                const ctx = document.getElementById('radarChart').getContext('2d');
+                if (state.chartInstance) state.chartInstance.destroy();
+
+                Chart.defaults.color = '#94a3b8';
+                Chart.defaults.font.family = "'Inter', sans-serif";
+
+                state.chartInstance = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['Energy', 'Valence', 'Danceable', 'Acoustic', 'Synthetic', 'Tempo'],
+                        datasets: [{
+                            label: 'Audio Signature',
+                            data: [data.energy, data.valence, data.danceability, data.acousticness, data.synthetic, Math.round((data.tempo/180)*100)],
+                            backgroundColor: 'rgba(139, 92, 246, 0.25)',
+                            borderColor: '#8B5CF6',
+                            pointBackgroundColor: '#06B6D4',
+                            pointBorderColor: '#fff',
+                            borderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                angleLines: { color: 'rgba(255,255,255,0.08)' },
+                                grid: { color: 'rgba(255,255,255,0.08)' },
+                                pointLabels: { font: { size: 10, weight: '600' } },
+                                ticks: { display: false, min: 0, max: 100 }
+                            }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            };
+
+            // --- Recommendation Engine ---
+            const fetchRecommendations = async (genres) => {
+                DOM.recsGrid.innerHTML = Array(6).fill().map(() => `
+                    <div class="glass-card rounded-2xl p-4 flex flex-col gap-3">
+                        <div class="flex items-center justify-between"><div class="h-3 w-1/3 bg-slate-800 rounded animate-pulse"></div><div class="h-3 w-1/4 bg-slate-800 rounded animate-pulse"></div></div>
+                        <div class="flex items-center gap-3"><div class="w-12 h-12 rounded-xl bg-slate-800 animate-pulse shrink-0"></div><div class="w-full space-y-2"><div class="h-3 w-3/4 bg-slate-800 rounded animate-pulse"></div><div class="h-3 w-1/2 bg-slate-800 rounded animate-pulse"></div></div></div>
+                    </div>
+                `).join('');
+
+                // STRICT ARTIST EXCLUSION SET
+                const seedArtistsNormalized = new Set(state.seeds.map(s => s.artist.toLowerCase().trim()));
+                const queryGenre = genres.length > 0 ? genres[0] : 'Pop';
+
+                try {
+                    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(queryGenre)}&media=music&entity=song&limit=60`);
+                    const data = await res.json();
+
+                    let recsPool = [];
+                    const artistTrackCount = {}; // Max 2 per artist limit
+
+                    for (const track of (data.results || [])) {
+                        if (recsPool.length >= 9) break;
+
+                        const rawArtist = track.artistName.toLowerCase().trim();
+
+                        // Strict Artist Exclusion Check
+                        let matchesSeedArtist = false;
+                        for (const sArtist of seedArtistsNormalized) {
+                            if (rawArtist.includes(sArtist) || sArtist.includes(rawArtist)) {
+                                matchesSeedArtist = true;
+                                break;
+                            }
+                        }
+
+                        if (matchesSeedArtist) continue;
+
+                        // Max 2 tracks per recommended artist
+                        artistTrackCount[rawArtist] = (artistTrackCount[rawArtist] || 0);
+                        if (artistTrackCount[rawArtist] >= 2) continue;
+                        artistTrackCount[rawArtist]++;
+
+                        const hiResArt = track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb', '300x300bb') : '';
+                        const attr = generateAttributes(track.trackName + track.artistName);
+                        const matchPct = Math.floor(Math.random() * 12) + 87;
+
+                        recsPool.push({
+                            id: track.trackId,
+                            title: track.trackName,
+                            artist: track.artistName,
+                            cover: hiResArt,
+                            preview: track.previewUrl,
+                            genre: track.primaryGenreName || queryGenre,
+                            matchPct: matchPct,
+                            category: matchPct > 93 ? 'vibes' : 'genre',
+                            reason: `Complements your ${queryGenre} focus with ${attr.energy}% energy and similar acoustic dynamics.`
+                        });
+                    }
+
+                    state.recs = recsPool;
+                    filterAndRenderRecs();
+                } catch (error) {
+                    console.error('Recs Error:', error);
+                    DOM.recsGrid.innerHTML = `<div class="col-span-full p-4 text-center text-red-400 text-xs">Failed to generate recommendations. Please retry.</div>`;
+                }
+            };
+
+            const setFilter = (category) => {
+                state.currentFilter = category;
+                document.querySelectorAll('#filterTabs button').forEach(btn => {
+                    if (btn.getAttribute('data-filter') === category) {
+                        btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-brand-accent text-white";
+                    } else {
+                        btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
+                    }
+                });
+                filterAndRenderRecs();
+            };
+
+            const filterAndRenderRecs = () => {
+                const list = state.currentFilter === 'all' ? state.recs : state.recs.filter(r => r.category === state.currentFilter);
+                
+                if (list.length === 0) {
+                    DOM.recsGrid.innerHTML = `<div class="col-span-full p-6 text-center text-slate-400 text-xs">No tracks match this filter category.</div>`;
+                    return;
+                }
+
+                DOM.recsGrid.innerHTML = list.map(rec => {
+                    const isPlaying = state.currentPlayingTrack && state.currentPlayingTrack.preview === rec.preview;
+                    const jsonStr = JSON.stringify(rec).replace(/'/g, "&#39;");
+
+                    return `
+                    <div class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between group hover:border-brand-accent/40 transition-all duration-300">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-[10px] uppercase font-bold tracking-wider text-brand-success bg-brand-success/10 px-2 py-0.5 rounded border border-brand-success/20">
+                                    New Artist Focus
+                                </span>
+                                <span class="text-xs font-bold text-white bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
+                                    ${rec.matchPct}% Match
+                                </span>
+                            </div>
+
+                            <div class="flex items-center gap-3.5 mb-3.5">
+                                <div class="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0 border border-slate-700">
+                                    <img src="${rec.cover}" class="w-full h-full object-cover">
+                                    <button onclick='APP.playTrack(${jsonStr})' class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <i data-lucide="${isPlaying ? 'pause' : 'play'}" class="w-5 h-5 text-white ${isPlaying ? 'fill-current' : ''}"></i>
+                                    </button>
+                                </div>
+                                <div class="min-w-0 flex-grow">
+                                    <h4 onclick='APP.openTrackDetailModal(${jsonStr})' class="text-xs sm:text-sm font-bold text-slate-100 truncate cursor-pointer hover:text-brand-accent transition-colors">${escapeHTML(rec.title)}</h4>
+                                    <p class="text-[11px] font-semibold text-brand-cyan truncate">${escapeHTML(rec.artist)}</p>
+                                    <p class="text-[10px] text-slate-400 truncate mt-0.5">${escapeHTML(rec.genre)}</p>
+                                </div>
+                            </div>
+
+                            <p class="text-[11px] text-slate-300/90 bg-brand-dark/60 p-2.5 rounded-lg border border-slate-800/80 leading-relaxed mb-4">
+                                <strong class="text-brand-pink">Why:</strong> ${escapeHTML(rec.reason)}
+                            </p>
+                        </div>
+
+                        <div class="border-t border-slate-800/80 pt-3 flex items-center justify-between">
+                            <button onclick='APP.playTrack(${jsonStr})' class="px-3 py-1.5 rounded-lg bg-brand-accent/10 hover:bg-brand-accent text-brand-accent hover:text-white text-xs font-bold transition-all border border-brand-accent/20 flex items-center gap-1.5 min-h-[36px]">
+                                <i data-lucide="${isPlaying ? 'pause' : 'play'}" class="w-3.5 h-3.5"></i>
+                                <span>${isPlaying ? 'Pause' : 'Preview'}</span>
+                            </button>
+
+                            <button onclick='APP.addSeedTrack(${jsonStr})' class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all border border-slate-700 flex items-center gap-1 min-h-[36px]">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                <span class="hidden sm:inline">Add Seed</span>
+                            </button>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+                lucide.createIcons();
+            };
+
+            // --- Mobile Popups & Modals ---
+            const openTrackDetailModal = (track) => {
+                state.activeModalTrack = track;
+                document.getElementById('modalCover').src = track.cover;
+                document.getElementById('modalTitle').textContent = track.title;
+                document.getElementById('modalArtist').textContent = track.artist;
+                document.getElementById('modalGenre').textContent = track.genre;
+                document.getElementById('modalMatchPct').textContent = `${track.matchPct}% Match`;
+                document.getElementById('modalReason').textContent = track.reason;
+
+                const jsonStr = JSON.stringify(track).replace(/'/g, "&#39;");
+                document.getElementById('modalPlayBtn').setAttribute('onclick', `APP.playTrack(${jsonStr})`);
+                document.getElementById('modalSeedBtn').setAttribute('onclick', `APP.addSeedTrack(${jsonStr}); APP.closeTrackDetailModal();`);
+
+                DOM.trackDetailModal.classList.remove('hidden');
+                document.body.classList.add('modal-open');
+                lucide.createIcons();
+            };
+
+            const closeTrackDetailModal = () => {
+                DOM.trackDetailModal.classList.add('hidden');
+                document.body.classList.remove('modal-open');
+            };
+
+            const openExportModal = () => {
+                DOM.exportModal.classList.remove('hidden');
+                document.body.classList.add('modal-open');
+            };
+
+            const closeExportModal = () => {
+                DOM.exportModal.classList.add('hidden');
+                document.body.classList.remove('modal-open');
+            };
+
+            // --- Sticky Audio Player Logic ---
+            const playTrack = (track) => {
+                if (!track.preview) {
+                    showToast('Preview audio unavailable for this track.', 'warning');
+                    return;
+                }
+
+                if (state.currentPlayingTrack && state.currentPlayingTrack.preview === track.preview) {
+                    togglePlayPause();
+                    return;
+                }
+
+                state.currentPlayingTrack = track;
+                state.audio.src = track.preview;
+                
+                document.getElementById('playerCover').src = track.cover;
+                document.getElementById('playerTitle').textContent = track.title;
+                document.getElementById('playerArtist').textContent = track.artist;
+
+                DOM.globalPlayer.classList.remove('translate-y-full');
+                state.audio.play().catch(e => console.error("Audio error:", e));
+
+                filterAndRenderRecs();
+            };
+
+            const togglePlayPause = () => {
+                if (!state.currentPlayingTrack) return;
+                if (state.audio.paused) {
+                    state.audio.play();
+                } else {
+                    state.audio.pause();
+                }
+            };
+
+            const closePlayer = () => {
+                state.audio.pause();
+                state.currentPlayingTrack = null;
+                DOM.globalPlayer.classList.add('translate-y-full');
+                filterAndRenderRecs();
+            };
+
+            state.audio.addEventListener('play', () => {
+                document.getElementById('playerPlayIcon').setAttribute('data-lucide', 'pause');
+                lucide.createIcons();
+            });
+
+            state.audio.addEventListener('pause', () => {
+                document.getElementById('playerPlayIcon').setAttribute('data-lucide', 'play');
+                lucide.createIcons();
+            });
+
+            state.audio.addEventListener('timeupdate', () => {
+                const pct = (state.audio.currentTime / 30) * 100;
+                document.getElementById('playerProgress').style.width = `${pct}%`;
+                
+                const secs = Math.floor(state.audio.currentTime);
+                document.getElementById('playerTime').textContent = `0:${secs < 10 ? '0' : ''}${secs} / 0:30`;
+            });
+
+            state.audio.addEventListener('ended', () => {
+                document.getElementById('playerPlayIcon').setAttribute('data-lucide', 'play');
+                lucide.createIcons();
+                state.currentPlayingTrack = null;
+                filterAndRenderRecs();
+            });
+
+            const seekAudio = (e) => {
+                if (!state.currentPlayingTrack) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                state.audio.currentTime = pos * 30;
+            };
+
+            // --- Playlist Export Functions ---
+            const copyRecs = () => {
+                if (state.recs.length === 0) return showToast('No recommendations to copy.', 'warning');
+                const text = state.recs.map((r, i) => `${i+1}. ${r.title} - ${r.artist} (${r.matchPct}% Match)`).join('\n');
+                
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast('Tracklist copied to clipboard!', 'success');
+                    closeExportModal();
+                }).catch(() => {
+                    const ta = document.createElement("textarea");
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                    showToast('Tracklist copied to clipboard!', 'success');
+                    closeExportModal();
+                });
+            };
+
+            const exportCSV = () => {
+                if (state.recs.length === 0) return showToast('No recommendations to export.', 'warning');
+                let csv = "data:text/csv;charset=utf-8,Title,Artist,Genre,Match\n";
+                state.recs.forEach(r => {
+                    csv += `"${r.title.replace(/"/g, '""')}","${r.artist.replace(/"/g, '""')}","${r.genre}",${r.matchPct}%\n`;
+                });
+                const link = document.createElement("a");
+                link.href = encodeURI(csv);
+                link.download = "MusicTaste_Recommendations.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast('CSV downloaded successfully!', 'success');
+                closeExportModal();
+            };
+
+            // Initialize App Controls
+            const initQuickStarters = () => {
+                const container = document.getElementById('quickStarters');
+                container.innerHTML = QUICK_STARTERS.map(qs => 
+                    `<button onclick="APP.triggerSearch('${qs.title} ${qs.artist}')" class="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-xs border border-slate-700/60 transition-colors min-h-[36px]">
+                        ${qs.title} - ${qs.artist}
+                    </button>`
+                ).join('');
+            };
+
+            lucide.createIcons();
+            initQuickStarters();
+
+            return {
+                triggerSearch: (term) => { DOM.searchInput.value = term; debouncedSearch(term); },
+                addSeedTrack,
+                removeSeedTrack,
+                clearSeeds,
+                runAnalysis,
+                playTrack,
+                togglePlayPause,
+                closePlayer,
+                seekAudio,
+                setFilter,
+                openTrackDetailModal,
+                closeTrackDetailModal,
+                openExportModal,
+                closeExportModal,
+                copyRecs,
+                exportCSV,
+                resetApp: () => { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+            };
+        })();
+    </script>
+</body>
+</html>
